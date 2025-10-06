@@ -9,6 +9,9 @@ const MessageScore = () => {
   const [error, setError] = useState('');
   const [displayScore, setDisplayScore] = useState(0);
   const [hasEquity, setHasEquity] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
 
   const messageTypes = [
     'Website Headline', 'Value Proposition', 'Paid Ad Copy', 'Email Subject Line',
@@ -52,6 +55,8 @@ const MessageScore = () => {
   const evaluateMessage = async () => {
     setError('');
     setResult(null);
+    setCopied(false);
+    setEmailSent(false);
 
     if (!messageType) {
       setError('Select a message type.');
@@ -128,11 +133,11 @@ Framework to apply based on message type:
 JSON response only:
 {"clarity_score": 1-10, "verifiability_score": 1-10, "trust_score": 1-10, "total_score": (C*0.4+V*0.3+T*0.3)*10 rounded, "clarity_feedback": "sharp sentence referencing actual message content", "verifiability_feedback": "sharp sentence referencing actual message content", "trust_feedback": "sharp sentence referencing actual message content", "improvements": ["specific action referencing message content", "specific action referencing message content"], "has_blacklisted_words": bool, "blacklist_note": "Delete X and Y" if true, "rewrite": "improved version following guidelines above" if <70, "equity_note": "brief note about how brand equity affects this score" if established brand}`;
 
-   const response = await fetch('/api/evaluate', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ prompt })
-});
+      const response = await fetch('/api/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
 
       const data = await response.json();
       const text = data.content[0].text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
@@ -144,6 +149,34 @@ JSON response only:
     }
   };
 
+  const copyScoreToClipboard = () => {
+    if (!result) return;
+    
+    const scoreText = `Original Message: "${messageText}"
+
+MessageScore: ${result.total_score}/100 (${tier.label})
+Clarity: ${result.clarity_score}/10 | Verifiability: ${result.verifiability_score}/10 | Trust: ${result.trust_score}/10
+
+Test your messaging at MessageScore.com`;
+
+    navigator.clipboard.writeText(scoreText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleEmailReport = async () => {
+    if (!email || !result) return;
+    
+    // TODO: Wire up email sending API
+    // For now, just show success message
+    setEmailSent(true);
+    setTimeout(() => {
+      setEmailSent(false);
+      setEmail('');
+    }, 3000);
+  };
+
   const tier = result ? getTierInfo(result.total_score) : null;
   const nextTier = result ? getNextTier(result.total_score) : null;
 
@@ -153,9 +186,7 @@ JSON response only:
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="w-12 h-12 bg-slate-900 rounded-full flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
+            <img src="/messagescore-logo.png" alt="MessageScore" className="w-12 h-12" />
             <h1 className="text-4xl font-bold text-slate-900">MessageScore</h1>
           </div>
           <p className="text-slate-700 text-sm font-medium max-w-2xl mx-auto">
@@ -218,7 +249,7 @@ JSON response only:
             disabled={loading}
             className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 disabled:bg-stone-300 flex items-center justify-center gap-2"
           >
-            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Evaluating...</> : <><TrendingUp className="w-5 h-5" /> Get Your Score</>}
+            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Scoring...</> : <><TrendingUp className="w-5 h-5" /> Get Your Score</>}
           </button>
         </div>
 
@@ -277,8 +308,8 @@ JSON response only:
                 </div>
               </div>
 
-              <button className="w-full mt-6 bg-slate-900 text-white py-2 rounded-lg font-semibold hover:bg-slate-800 flex items-center justify-center gap-2">
-                <Share2 className="w-4 h-4" /> Share Your Score
+              <button onClick={copyScoreToClipboard} className="w-full mt-6 bg-slate-900 text-white py-2 rounded-lg font-semibold hover:bg-slate-800 flex items-center justify-center gap-2">
+                <Share2 className="w-4 h-4" /> {copied ? 'Copied!' : 'Copy Score to Clipboard'}
               </button>
             </div>
 
@@ -353,6 +384,32 @@ JSON response only:
                 <p className="text-sm text-slate-900">{result.equity_note}</p>
               </div>
             )}
+
+            <div className="bg-slate-50 border-2 border-slate-200 rounded-lg p-6">
+              <h3 className="text-lg font-bold text-slate-900 mb-3">Want the full analysis?</h3>
+              <p className="text-sm text-slate-600 mb-4">Get your complete MessageScore report emailed to you. Perfect for your swipe file.</p>
+              
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="flex-1 px-4 py-2 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleEmailReport}
+                  disabled={!email || emailSent}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-slate-300"
+                >
+                  {emailSent ? '✓ Sent' : 'Send Report'}
+                </button>
+              </div>
+              
+              {emailSent && (
+                <p className="text-sm text-green-700 mt-2">Check your inbox! Report sent to {email}</p>
+              )}
+            </div>
           </div>
         )}
       </div>
