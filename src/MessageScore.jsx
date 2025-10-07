@@ -165,17 +165,34 @@ Test your messaging at MessageScore.com`;
     });
   };
 
-  const handleEmailReport = async () => {
-    if (!email || !result) return;
-    
-    // TODO: Wire up email sending API
-    // For now, just show success message
-    setEmailSent(true);
-    setTimeout(() => {
-      setEmailSent(false);
-      setEmail('');
-    }, 3000);
-  };
+const handleEmailReport = async () => {
+  if (!email || !result) return;
+  
+  try {
+    const response = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        messageText,
+        messageType,
+        result
+      })
+    });
+
+    if (response.ok) {
+      setEmailSent(true);
+      setTimeout(() => {
+        setEmailSent(false);
+        setEmail('');
+      }, 3000);
+    } else {
+      setError('Failed to send email. Please try again.');
+    }
+  } catch (err) {
+    setError('Failed to send email. Please try again.');
+  }
+};
 
   const tier = result ? getTierInfo(result.total_score) : null;
   const nextTier = result ? getNextTier(result.total_score) : null;
