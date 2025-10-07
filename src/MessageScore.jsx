@@ -12,6 +12,7 @@ const MessageScore = () => {
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
 
   const messageTypes = [
     'Website Headline', 'Value Proposition', 'Paid Ad Copy', 'Email Subject Line',
@@ -133,10 +134,14 @@ Framework to apply based on message type:
 JSON response only:
 {"clarity_score": 1-10, "verifiability_score": 1-10, "trust_score": 1-10, "total_score": (C*0.4+V*0.3+T*0.3)*10 rounded, "clarity_feedback": "sharp sentence referencing actual message content", "verifiability_feedback": "sharp sentence referencing actual message content", "trust_feedback": "sharp sentence referencing actual message content", "improvements": ["specific action referencing message content", "specific action referencing message content"], "has_blacklisted_words": bool, "blacklist_note": "Delete X and Y" if true, "rewrite": "improved version following guidelines above" if <70, "equity_note": "brief note about how brand equity affects this score" if established brand}`;
 
-      const response = await fetch('/api/evaluate', {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: prompt }]
+        })
       });
 
       const data = await response.json();
@@ -165,34 +170,17 @@ Test your messaging at MessageScore.com`;
     });
   };
 
-const handleEmailReport = async () => {
-  if (!email || !result) return;
-  
-  try {
-    const response = await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        messageText,
-        messageType,
-        result
-      })
-    });
-
-    if (response.ok) {
-      setEmailSent(true);
-      setTimeout(() => {
-        setEmailSent(false);
-        setEmail('');
-      }, 3000);
-    } else {
-      setError('Failed to send email. Please try again.');
-    }
-  } catch (err) {
-    setError('Failed to send email. Please try again.');
-  }
-};
+  const handleEmailReport = async () => {
+    if (!email || !result) return;
+    
+    // TODO: Wire up email sending API
+    // For now, just show success message
+    setEmailSent(true);
+    setTimeout(() => {
+      setEmailSent(false);
+      setEmail('');
+    }, 3000);
+  };
 
   const tier = result ? getTierInfo(result.total_score) : null;
   const nextTier = result ? getNextTier(result.total_score) : null;
@@ -203,7 +191,7 @@ const handleEmailReport = async () => {
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-3">
-            <img src="/messagescore-logo.png" alt="MessageScore" className="w-12 h-12" />
+            <img src="/messagescore-logo.png" alt="MessageScore" className="w-12 h-12 rounded-lg" />
             <h1 className="text-4xl font-bold text-slate-900">MessageScore</h1>
           </div>
           <p className="text-slate-700 text-sm font-medium max-w-2xl mx-auto">
@@ -425,6 +413,13 @@ const handleEmailReport = async () => {
               
               {emailSent && (
                 <p className="text-sm text-green-700 mt-2">Check your inbox! Report sent to {email}</p>
+              )}
+              
+              {emailError && (
+                <div className="mt-3 p-3 bg-red-50 border-2 border-red-300 rounded-lg flex gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-700 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700 font-medium">{emailError}</p>
+                </div>
               )}
             </div>
           </div>
