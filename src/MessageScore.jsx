@@ -134,15 +134,11 @@ Framework to apply based on message type:
 JSON response only:
 {"clarity_score": 1-10, "verifiability_score": 1-10, "trust_score": 1-10, "total_score": (C*0.4+V*0.3+T*0.3)*10 rounded, "clarity_feedback": "sharp sentence referencing actual message content", "verifiability_feedback": "sharp sentence referencing actual message content", "trust_feedback": "sharp sentence referencing actual message content", "improvements": ["specific action referencing message content", "specific action referencing message content"], "has_blacklisted_words": bool, "blacklist_note": "Delete X and Y" if true, "rewrite": "improved version following guidelines above" if <70, "equity_note": "brief note about how brand equity affects this score" if established brand}`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
+const response = await fetch('/api/evaluate', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ prompt })
+});
 
       const data = await response.json();
       const text = data.content[0].text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
