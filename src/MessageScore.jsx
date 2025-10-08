@@ -408,7 +408,7 @@ Test your messaging at MessageScore.com`;
               </div>
               
               {emailSent && (
-                <p className="text-sm text-green-700 mt-2">Check your inbox! Report sent to {email}</p>
+                <p className="text-sm text-green-700 mt-2">Check your inbox. Report sent to {email}</p>
               )}
               
               {emailError && (
