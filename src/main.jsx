@@ -1,10 +1,19 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import MessageScore from './MessageScore.jsx'
+import About from './About.jsx'
+import HowItWorks from './HowItWorks.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <MessageScore />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MessageScore />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+      </Routes>
+    </BrowserRouter>
   </React.StrictMode>,
 )

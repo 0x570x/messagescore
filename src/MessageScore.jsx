@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Loader2, Sparkles, TrendingUp, CheckCircle, AlertCircle, Share2 } from 'lucide-react';
 
 const MessageScore = () => {
@@ -134,11 +135,11 @@ Framework to apply based on message type:
 JSON response only:
 {"clarity_score": 1-10, "verifiability_score": 1-10, "trust_score": 1-10, "total_score": (C*0.4+V*0.3+T*0.3)*10 rounded, "clarity_feedback": "sharp sentence referencing actual message content", "verifiability_feedback": "sharp sentence referencing actual message content", "trust_feedback": "sharp sentence referencing actual message content", "improvements": ["specific action referencing message content", "specific action referencing message content"], "has_blacklisted_words": bool, "blacklist_note": "Delete X and Y" if true, "rewrite": "improved version following guidelines above" if <70, "equity_note": "brief note about how brand equity affects this score" if established brand}`;
 
-const response = await fetch('/api/evaluate', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ prompt })
-});
+      const response = await fetch('/api/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
 
       const data = await response.json();
       const text = data.content[0].text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
@@ -169,13 +170,32 @@ Test your messaging at MessageScore.com`;
   const handleEmailReport = async () => {
     if (!email || !result) return;
     
-    // TODO: Wire up email sending API
-    // For now, just show success message
-    setEmailSent(true);
-    setTimeout(() => {
-      setEmailSent(false);
-      setEmail('');
-    }, 3000);
+    setEmailError('');
+    
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          messageText,
+          messageType,
+          result
+        })
+      });
+
+      if (response.ok) {
+        setEmailSent(true);
+        setTimeout(() => {
+          setEmailSent(false);
+          setEmail('');
+        }, 3000);
+      } else {
+        setEmailError('Failed to send email. Please try again.');
+      }
+    } catch (err) {
+      setEmailError('Failed to send email. Please try again.');
+    }
   };
 
   const tier = result ? getTierInfo(result.total_score) : null;
@@ -190,6 +210,13 @@ Test your messaging at MessageScore.com`;
             <img src="/messagescore-logo.png" alt="MessageScore" className="w-12 h-12 rounded-lg" />
             <h1 className="text-4xl font-bold text-slate-900">MessageScore</h1>
           </div>
+          
+          {/* Navigation Links */}
+          <div className="flex justify-center gap-6 mb-4">
+            <Link to="/about" className="text-sm font-semibold text-slate-600 hover:text-slate-900">About</Link>
+            <Link to="/how-it-works" className="text-sm font-semibold text-slate-600 hover:text-slate-900">How It Works</Link>
+          </div>
+
           <p className="text-slate-700 text-sm font-medium max-w-2xl mx-auto">
             Stop guessing if your words work. Score and improve them instantly with the first diagnostic tool built for marketing messaging. Clarity, trust and proof are now KPIs. Not opinions.
           </p>
@@ -408,7 +435,7 @@ Test your messaging at MessageScore.com`;
               </div>
               
               {emailSent && (
-                <p className="text-sm text-green-700 mt-2">Check your inbox. Report sent to {email}</p>
+                <p className="text-sm text-green-700 mt-2">Check your inbox! Report sent to {email}</p>
               )}
               
               {emailError && (
