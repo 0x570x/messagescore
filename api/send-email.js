@@ -14,7 +14,7 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${process.env.RESEND_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'MessageScore <onboarding@resend.dev>', // You'll change this to your domain later
+        from: 'MessageScore <reports@emails.messagescore.com>',
         to: email,
         subject: `Your MessageScore Report: ${result.total_score}/100`,
         html: `
