@@ -40,7 +40,7 @@ const About = () => {
           <p className="text-slate-700 mb-4">Everything has a metric—except the very thing that powers it all: <strong>the message itself</strong>.</p>
           <p className="text-slate-700 mb-4">You can A/B test a button color 100 times, but if your headline says "revolutionary AI-powered platform," no amount of optimization will save you.</p>
           <p className="text-slate-700 mb-4">Marketing has a credibility crisis. Every company claims they're "innovative," "best-in-class," and "transforming the industry." No one believes any of it anymore.</p>
-          <p className="text-slate-700 mb-8">Your prospects aren't stupid. They can smell vague claims and empty promises from a mile away. But most marketers don't realize how bad their messaging is until it's already live—and the campaign has already failed.</p>
+          <p className="text-slate-700 mb-8">Your prospects aren't stupid. They can smell vague claims and empty promises from a mile away. But most marketers don't realize how bad their messaging is until it's already live and the campaign has already failed. Money burnt.</p>
           <p className="text-slate-700 mb-8">That's where MessageScore comes in.</p>
 
           <hr className="my-12 border-stone-300" />
@@ -74,7 +74,7 @@ const About = () => {
 
           <hr className="my-12 border-stone-300" />
 
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">Why It's So Harsh</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">Built To Standard</h2>
           <p className="text-slate-700 mb-4">MessageScore isn't here to make you feel good. It's here to make your messaging work.</p>
           <p className="text-slate-700 mb-4">The average marketing message in the wild would score 20-50. Vague benefits, buzzwords, and unverifiable claims dominate most websites, ads, and landing pages.</p>
           <p className="text-slate-700 mb-4">Here's what happens when you try to score common marketing patterns:</p>
