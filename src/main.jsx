@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import MessageScore from './MessageScore.jsx'
 import About from './About.jsx'
 import HowItWorks from './HowItWorks.jsx'
@@ -14,6 +15,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/about" element={<About />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
       </Routes>
+      <Analytics />
     </BrowserRouter>
   </React.StrictMode>,
 )
