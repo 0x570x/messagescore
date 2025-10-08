@@ -186,12 +186,29 @@ const HowItWorks = () => {
           </ul>
 
           <p className="text-slate-700 mb-4"><strong>When does it not apply?</strong></p>
-          <ul className="list-disc list-inside text-slate-700 mb-12 space-y-1">
+          <ul className="list-disc list-inside text-slate-700 mb-8 space-y-1">
             <li>Taglines for established brands (emotion over proof)</li>
             <li>Email subject lines (curiosity + specificity)</li>
             <li>Calls-to-action (clarity of action, not proof)</li>
             <li>Brand positioning statements</li>
           </ul>
+
+          <div className="bg-slate-100 border-2 border-slate-300 rounded-lg p-6 mb-12">
+            <p className="text-lg font-semibold text-slate-900 mb-4">Does the scoring adapt for different message types?</p>
+            <p className="text-slate-700 mb-4">Yes. MessageScore evaluates each message type on the criteria that matter most for that format:</p>
+            
+            <ul className="space-y-3 text-sm text-slate-700">
+              <li><strong>Taglines:</strong> If you check "established brand with recognition," the tool shifts to prioritize memorability, distinctiveness, and emotional resonance over literal proof. "Just Do It" scores 90+ for Nike, but 34 for an unknown brand.</li>
+              
+              <li><strong>Email subject lines:</strong> Scored on curiosity + specificity. "How Stripe recovered $2.3M" (77) balances intrigue with concrete detail.</li>
+              
+              <li><strong>Calls-to-action:</strong> Scored on clarity of action. "Start free trial" doesn't need proof. It needs to be immediately understandable.</li>
+              
+              <li><strong>Everything else:</strong> For proof-based messages (value props, features, case studies), the CVT Framework applies strictly: Clarity, Verifiability, Trust.</li>
+            </ul>
+            
+            <p className="text-slate-700 mt-4">The scoring methodology adapts to what makes each message type effective. You're never penalized for writing a CTA that doesn't include a case study. That would be absurd.</p>
+          </div>
 
           <hr className="my-12 border-stone-300" />
 
