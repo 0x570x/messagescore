@@ -155,21 +155,43 @@ const HowItWorks = () => {
           <hr className="my-12 border-stone-300" />
 
           <h2 className="text-2xl font-bold text-slate-900 mb-6">The Formula for High Scores</h2>
-          <p className="text-slate-700 mb-4">Messages that score 75+ follow a simple pattern:</p>
+          <p className="text-slate-700 mb-4">For proof-based messaging (value propositions, features, case studies, product descriptions), messages that score 75+ follow a simple pattern:</p>
 
-          <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 mb-8">
+          <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 mb-6">
             <p className="text-lg font-semibold text-blue-900 mb-4 text-center">Named Entity + Precise Number + Measurable Outcome</p>
-            <p className="text-sm text-slate-700 text-center">That's it. That's the formula.</p>
+            <p className="text-sm text-slate-700 text-center">This formula works when you're making claims about results.</p>
           </div>
 
           <p className="text-slate-700 mb-4">Examples:</p>
-          <ul className="list-disc list-inside text-slate-700 mb-8 space-y-2">
+          <ul className="list-disc list-inside text-slate-700 mb-6 space-y-2">
             <li><strong>MongoDB</strong> reduced database query time from <strong>2.3 seconds to 140ms</strong></li>
             <li><strong>Stripe</strong> recovered <strong>$2.3M</strong> in failed payments</li>
             <li><strong>Zendesk</strong> cut response time <strong>73%</strong> (4.2hrs → 1.1hrs)</li>
           </ul>
 
-          <p className="text-slate-700 mb-12">No fluff. No buzzwords. Just proof.</p>
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-8">
+            <p className="text-sm font-semibold text-amber-900 mb-2">⚠️ Important Note</p>
+            <p className="text-sm text-slate-700">This formula applies to <strong>proof-based messaging</strong>—when you're making claims about results, outcomes, or capabilities.</p>
+            <p className="text-sm text-slate-700 mt-2">Brand messaging (taglines, positioning statements) follows different rules: <strong>memorability over metrics</strong>. Abstract, aspirational messaging can score high for established brands with recognition (Nike's "Just Do It"), but new brands need grounding and specificity.</p>
+          </div>
+
+          <p className="text-slate-700 mb-4"><strong>When does the formula work?</strong></p>
+          <ul className="list-disc list-inside text-slate-700 mb-4 space-y-1">
+            <li>Value propositions</li>
+            <li>Feature highlights</li>
+            <li>Case studies and proof points</li>
+            <li>Product descriptions (when making claims)</li>
+            <li>Cold outreach</li>
+            <li>Sales deck intros</li>
+          </ul>
+
+          <p className="text-slate-700 mb-4"><strong>When does it not apply?</strong></p>
+          <ul className="list-disc list-inside text-slate-700 mb-12 space-y-1">
+            <li>Taglines for established brands (emotion over proof)</li>
+            <li>Email subject lines (curiosity + specificity)</li>
+            <li>Calls-to-action (clarity of action, not proof)</li>
+            <li>Brand positioning statements</li>
+          </ul>
 
           <hr className="my-12 border-stone-300" />
 
