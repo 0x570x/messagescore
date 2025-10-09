@@ -55,6 +55,32 @@ const MessageScore = () => {
     }
   }, [result]);
 
+  // Track when message type is selected
+  const handleMessageTypeChange = (type) => {
+    setMessageType(type);
+    if (type) {
+      trackEvent('message_type_selected', {
+        message_type: type
+      });
+    }
+  };
+
+  // Track when brand equity checkbox is toggled
+  const handleEquityChange = (checked) => {
+    setHasEquity(checked);
+    trackEvent('brand_equity_toggled', {
+      has_equity: checked,
+      message_type: messageType
+    });
+  };
+
+  // Track navigation clicks
+  const handleNavClick = (destination) => {
+    trackEvent('navigation_click', {
+      destination: destination
+    });
+  };
+
   const evaluateMessage = async () => {
     setError('');
     setResult(null);
@@ -151,10 +177,22 @@ JSON response only:
       trackEvent('message_scored', {
         message_type: messageType,
         score: parsedResult.total_score,
-        has_brand_equity: hasEquity
+        has_brand_equity: hasEquity,
+        has_rewrite: !!parsedResult.rewrite
       });
+
+      // Track if rewrite was provided
+      if (parsedResult.rewrite) {
+        trackEvent('rewrite_provided', {
+          original_score: parsedResult.total_score,
+          message_type: messageType
+        });
+      }
     } catch (err) {
       setError('Evaluation failed. Try again.');
+      trackEvent('scoring_error', {
+        message_type: messageType
+      });
     } finally {
       setLoading(false);
     }
@@ -236,8 +274,20 @@ Test your messaging at MessageScore.com`;
           
           {/* Navigation Links */}
           <div className="flex justify-center gap-6 mb-4">
-            <Link to="/about" className="text-sm font-semibold text-slate-600 hover:text-slate-900">About</Link>
-            <Link to="/how-it-works" className="text-sm font-semibold text-slate-600 hover:text-slate-900">How It Works</Link>
+            <Link 
+              to="/about" 
+              onClick={() => handleNavClick('about')}
+              className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+            >
+              About
+            </Link>
+            <Link 
+              to="/how-it-works" 
+              onClick={() => handleNavClick('how-it-works')}
+              className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+            >
+              How It Works
+            </Link>
           </div>
 
           <p className="text-slate-700 text-sm font-medium max-w-2xl mx-auto">
@@ -250,7 +300,7 @@ Test your messaging at MessageScore.com`;
             <label className="block text-sm font-semibold text-slate-900 mb-2">Message Type</label>
             <select
               value={messageType}
-              onChange={(e) => setMessageType(e.target.value)}
+              onChange={(e) => handleMessageTypeChange(e.target.value)}
               className="w-full px-4 py-3 border-2 border-stone-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select type...</option>
@@ -275,7 +325,7 @@ Test your messaging at MessageScore.com`;
                 <input
                   type="checkbox"
                   checked={hasEquity}
-                  onChange={(e) => setHasEquity(e.target.checked)}
+                  onChange={(e) => handleEquityChange(e.target.checked)}
                   className="mt-1 w-4 h-4"
                 />
                 <div>
