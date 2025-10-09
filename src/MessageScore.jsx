@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, Sparkles, TrendingUp, CheckCircle, AlertCircle, Share2 } from 'lucide-react';
+import { trackEvent } from './analytics.js';
 
 const MessageScore = () => {
   const [messageType, setMessageType] = useState('');
@@ -143,7 +144,15 @@ JSON response only:
 
       const data = await response.json();
       const text = data.content[0].text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
-      setResult(JSON.parse(text));
+      const parsedResult = JSON.parse(text);
+      setResult(parsedResult);
+
+      // Track the scoring event
+      trackEvent('message_scored', {
+        message_type: messageType,
+        score: parsedResult.total_score,
+        has_brand_equity: hasEquity
+      });
     } catch (err) {
       setError('Evaluation failed. Try again.');
     } finally {
@@ -163,6 +172,13 @@ Test your messaging at MessageScore.com`;
 
     navigator.clipboard.writeText(scoreText).then(() => {
       setCopied(true);
+      
+      // Track copy event
+      trackEvent('score_copied', {
+        score: result.total_score,
+        message_type: messageType
+      });
+      
       setTimeout(() => setCopied(false), 2000);
     });
   };
@@ -186,6 +202,13 @@ Test your messaging at MessageScore.com`;
 
       if (response.ok) {
         setEmailSent(true);
+        
+        // Track email report request
+        trackEvent('email_report_sent', {
+          score: result.total_score,
+          message_type: messageType
+        });
+        
         setTimeout(() => {
           setEmailSent(false);
           setEmail('');
