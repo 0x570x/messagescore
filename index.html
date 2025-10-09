@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MessageScore - Benchmark Your Marketing Messaging</title>
     <meta name="description" content="Stop guessing if your words work. Score and improve them instantly with the first diagnostic tool built for marketing messaging." />
+    <script>
+      (function(){
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect != location.href) {
+          history.replaceState(null, null, redirect);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
