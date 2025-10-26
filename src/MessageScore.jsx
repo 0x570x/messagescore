@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Sparkles, TrendingUp, CheckCircle, AlertCircle, Share2 } from 'lucide-react';
+import { Loader2, Sparkles, TrendingUp, CheckCircle, AlertCircle, Share2, Lock, Zap, Mail, X } from 'lucide-react';
+import Cookies from 'js-cookie';
 import { trackEvent } from './analytics.js';
 
 const MessageScore = () => {
@@ -12,9 +13,23 @@ const MessageScore = () => {
   const [displayScore, setDisplayScore] = useState(0);
   const [hasEquity, setHasEquity] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [email, setEmail] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
+  
+  // Auth & Usage state
+  const [fingerprint, setFingerprint] = useState(null);
+  const [sessionId] = useState(() => Cookies.get('session_id') || generateSessionId());
+  const [authToken, setAuthToken] = useState(() => Cookies.get('auth_token'));
+  const [usageStatus, setUsageStatus] = useState(null);
+  const [isVerified, setIsVerified] = useState(false);
+  
+  // Modal states
+  const [showEmailGate, setShowEmailGate] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [showVerificationPrompt, setShowVerificationPrompt] = useState(false);
+  
+  // Form states
+  const [signupEmail, setSignupEmail] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const messageTypes = [
     'Website Headline', 'Value Proposition', 'Paid Ad Copy', 'Email Subject Line',
@@ -22,70 +37,96 @@ const MessageScore = () => {
     'Call-to-Action (CTA)', 'Cold Outreach Line', 'Tagline', 'Feature Highlight', 'Other'
   ];
 
-  const getTierInfo = (score) => {
-    if (score >= 90) return { label: 'Excellent', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-300', strokeColor: '#10b981' };
-    if (score >= 80) return { label: 'Strong', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-300', strokeColor: '#3b82f6' };
-    if (score >= 70) return { label: 'Good', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-300', strokeColor: '#f59e0b' };
-    if (score >= 60) return { label: 'Needs Work', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-300', strokeColor: '#f97316' };
-    return { label: 'Weak', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-300', strokeColor: '#dc2626' };
-  };
+useEffect(() => {
+  async function initialize() {
+    await initializeFingerprint();
+    fetchUsageStatus();
+    checkVerificationStatus();
+  }
+  initialize();
+}, []);
 
-  const getNextTier = (score) => {
-    if (score >= 90) return null;
-    if (score >= 80) return { name: 'Excellent', threshold: 90 };
-    if (score >= 70) return { name: 'Strong', threshold: 80 };
-    if (score >= 60) return { name: 'Good', threshold: 70 };
-    return { name: 'Needs Work', threshold: 60 };
-  };
+  function generateSessionId() {
+    const id = 'sess_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+    Cookies.set('session_id', id, { expires: 365 });
+    return id;
+  }
 
-  useEffect(() => {
-    if (result?.total_score) {
-      setDisplayScore(0);
-      let current = 0;
-      const timer = setInterval(() => {
-        current += 2;
-        if (current >= result.total_score) {
-          setDisplayScore(result.total_score);
-          clearInterval(timer);
-        } else {
-          setDisplayScore(current);
-        }
-      }, 20);
-      return () => clearInterval(timer);
+  async function initializeFingerprint() {
+    try {
+      // Simple browser fingerprint (fallback method without FingerprintJS Pro)
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillText('fingerprint', 2, 2);
+      const canvasData = canvas.toDataURL();
+      
+      const fingerprint = btoa(
+        navigator.userAgent + 
+        navigator.language + 
+        screen.colorDepth + 
+        screen.width + 
+        screen.height +
+        canvasData.substring(0, 50)
+      ).substring(0, 32);
+      
+      setFingerprint(fingerprint);
+      Cookies.set('fp', fingerprint, { expires: 365 });
+    } catch (error) {
+      console.error('Fingerprinting error:', error);
+      const existingFp = Cookies.get('fp');
+      if (!existingFp) {
+        const fallbackFp = 'fp_' + Math.random().toString(36).substr(2, 16);
+        Cookies.set('fp', fallbackFp, { expires: 365 });
+        setFingerprint(fallbackFp);
+      } else {
+        setFingerprint(existingFp);
+      }
     }
-  }, [result]);
+  }
 
-  // Track when message type is selected
-  const handleMessageTypeChange = (type) => {
-    setMessageType(type);
-    if (type) {
-      trackEvent('message_type_selected', {
-        message_type: type
+  async function fetchUsageStatus() {
+    try {
+      const headers = {
+        'x-fingerprint': fingerprint || Cookies.get('fp'),
+        'x-session-id': sessionId
+      };
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/usage-status`, { headers });
+      const data = await response.json();
+      setUsageStatus(data);
+    } catch (error) {
+      console.error('Failed to fetch usage status:', error);
+    }
+  }
+
+  async function checkVerificationStatus() {
+    if (!authToken) return;
+    
+    try {
+      const response = await fetch('http://localhost:3001/api/auth/user/status', {
+        headers: { 'Authorization': `Bearer ${authToken}` }
       });
+      const data = await response.json();
+      setIsVerified(data.email_verified);
+      
+      if (!data.email_verified) {
+        setShowVerificationPrompt(true);
+      }
+    } catch (error) {
+      console.error('Failed to check verification:', error);
     }
-  };
-
-  // Track when brand equity checkbox is toggled
-  const handleEquityChange = (checked) => {
-    setHasEquity(checked);
-    trackEvent('brand_equity_toggled', {
-      has_equity: checked,
-      message_type: messageType
-    });
-  };
-
-  // Track navigation clicks
-  const handleNavClick = (destination) => {
-    trackEvent('navigation_click', {
-      destination: destination
-    });
-  };
+  }
 
   const evaluateMessage = async () => {
     setError('');
     setResult(null);
     setCopied(false);
-    setEmailSent(false);
 
     if (!messageType) {
       setError('Select a message type.');
@@ -119,7 +160,7 @@ Standard scoring for new brands OR non-tagline message types:
 ` : ''}
 - Clarity (40%): 1-10. Score 10 = short/sharp, 2 = jargon-heavy
 - Verifiability (30%): 1-10. Score 10 = named source + metric, 2 = marketing speak
-- Trust (30%): 1-10. Score 10 = grounded/proof, 2 = desperate/hype
+- Trust (30%): 1-10. Score 10 = grounded/proof, 2 = desperate/hype/clichés
 
 TONE - Copy Chief with dry wit (constructive, never hostile):
 - Excellent (90+): "Tight. Ship it."
@@ -128,16 +169,20 @@ TONE - Copy Chief with dry wit (constructive, never hostile):
 - Needs Work (60-69): "Too vague. Name a customer or add a number."
 - Weak (<60): "Where's the proof? Add real data."
 
-VOICE POSITIONING - Critical:
+VOICE POSITIONING - CRITICAL - NEVER VIOLATE THIS:
+- FORBIDDEN WORDS in all feedback: "I", "me", "my", "we", "us", "our"
 - Position as diagnostic helper, NOT as judge or authority
-- Never use "me", "we", "us" in feedback
-- Bad: "tells me nothing", "I need to see proof"
-- Good: "says nothing", "needs specific proof"
+- Write as if the message itself is being analyzed objectively
+- Bad: "This tells me nothing", "I need proof", "This feels generic to me"
+- Good: "This says nothing specific", "Lacks proof", "Generic and aspirational"
+- Bad: "I see no evidence", "This makes me wonder"
+- Good: "No evidence provided", "Raises questions without answers"
 - Be neutral and observational, not personal
+- Use passive voice or message-focused language only
 - The feedback is about the message, not about pleasing MessageScore
 - IMPORTANT: Count words carefully. "Just Do It" = 3 words, not 2. Don't reference incorrect word counts.
 
-Blacklisted: "innovative", "cutting-edge", "game-changing", "revolutionary", "best-in-class"
+AVOID OVERUSED CLICHÉS: "innovative", "cutting-edge", "game-changing", "revolutionary", "best-in-class", "seamless", "robust", "leverage", "synergy", "disruptive"
 
 Be direct but respectful. Sharp, not mean. No insults or aggressive language.
 
@@ -146,7 +191,7 @@ Apply these rules in order:
 1. Lead with specific, measurable outcome (not vague benefit)
 2. Add concrete proof: number, percentage, customer name, or source
 3. Remove ALL vague words: "better", "streamline", "optimize", "help", "improve"
-4. Remove ALL blacklisted marketing speak
+4. Remove ALL overused clichés and marketing speak
 5. Keep under 25 words
 6. Use active voice, present tense
 7. Make it sound human and conversational, not corporate
@@ -160,138 +205,396 @@ Framework to apply based on message type:
   Example: "Book a demo. See how Stripe cut API errors by 60% in 2 weeks"
 
 JSON response only:
-{"clarity_score": 1-10, "verifiability_score": 1-10, "trust_score": 1-10, "total_score": (C*0.4+V*0.3+T*0.3)*10 rounded, "clarity_feedback": "sharp sentence referencing actual message content", "verifiability_feedback": "sharp sentence referencing actual message content", "trust_feedback": "sharp sentence referencing actual message content", "improvements": ["specific action referencing message content", "specific action referencing message content"], "has_blacklisted_words": bool, "blacklist_note": "Delete X and Y" if true, "rewrite": "improved version following guidelines above" if <70, "equity_note": "brief note about how brand equity affects this score" if established brand}`;
+{"clarity_score": 1-10, "verifiability_score": 1-10, "trust_score": 1-10, "total_score": (C*0.4+V*0.3+T*0.3)*10 rounded, "clarity_feedback": "sharp sentence referencing actual message content", "verifiability_feedback": "sharp sentence referencing actual message content", "trust_feedback": "sharp sentence referencing actual message content", "improvements": ["specific action referencing message content", "specific action referencing message content"], "has_overused_cliches": bool, "cliche_note": "Delete X and Y" if true, "rewrite": "improved version following guidelines above" if <70, "equity_note": "brief note about how brand equity affects this score" if established brand}`;
 
-      const response = await fetch('/api/evaluate', {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-fingerprint': fingerprint || Cookies.get('fp'),
+        'x-session-id': sessionId
+      };
+
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch('http://localhost:3001/api/evaluate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        headers,
+        body: JSON.stringify({ prompt, messageType })
       });
 
+      if (response.status === 429) {
+        const data = await response.json();
+        setUsageStatus(data.usageStatus);
+        
+        if (data.usageStatus.requiresEmail) {
+          setShowEmailGate(true);
+        } else if (data.usageStatus.requiresUpgrade) {
+          setShowUpgradePrompt(true);
+        }
+        
+        setError('Usage limit reached.');
+        return;
+      }
+
       const data = await response.json();
+      
+      if (data.usageStatus) {
+        setUsageStatus(data.usageStatus);
+      }
+
       const text = data.content[0].text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
       const parsedResult = JSON.parse(text);
       setResult(parsedResult);
 
-      // Track the scoring event
       trackEvent('message_scored', {
         message_type: messageType,
         score: parsedResult.total_score,
-        has_brand_equity: hasEquity,
-        has_rewrite: !!parsedResult.rewrite
+        usage_remaining: data.usageStatus?.remaining,
+        model_used: data.modelUsed
       });
 
-      // Track if rewrite was provided
-      if (parsedResult.rewrite) {
-        trackEvent('rewrite_provided', {
-          original_score: parsedResult.total_score,
-          message_type: messageType
-        });
+      // Show gates after scoring
+      if (data.usageStatus?.remaining === 0) {
+        if (data.usageStatus.requiresEmail && !authToken) {
+          setTimeout(() => setShowEmailGate(true), 2000);
+        } else if (data.usageStatus.requiresUpgrade) {
+          setTimeout(() => setShowUpgradePrompt(true), 2000);
+        }
       }
+
     } catch (err) {
-      setError('Evaluation failed. Try again.');
-      trackEvent('scoring_error', {
-        message_type: messageType
-      });
+      setError('Scoring failed. Try again.');
+      trackEvent('scoring_error', { message_type: messageType });
     } finally {
       setLoading(false);
     }
   };
 
-  const copyScoreToClipboard = () => {
-    if (!result) return;
-    
-    const scoreText = `Original Message: "${messageText}"
+  const handleSignup = async () => {
+    if (!signupEmail) {
+      setEmailError('Please enter your email');
+      return;
+    }
 
-MessageScore: ${result.total_score}/100 (${tier.label})
-Clarity: ${result.clarity_score}/10 | Verifiability: ${result.verifiability_score}/10 | Trust: ${result.trust_score}/10
-
-Test your messaging at MessageScore.com`;
-
-    navigator.clipboard.writeText(scoreText).then(() => {
-      setCopied(true);
-      
-      // Track copy event
-      trackEvent('score_copied', {
-        score: result.total_score,
-        message_type: messageType
-      });
-      
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  const handleEmailReport = async () => {
-    if (!email || !result) return;
-    
     setEmailError('');
-    
+
     try {
-      const response = await fetch('/api/send-email', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/signup`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          messageText,
-          messageType,
-          result
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'x-fingerprint': fingerprint || Cookies.get('fp'),
+          'x-session-id': sessionId
+        },
+        body: JSON.stringify({ email: signupEmail })
       });
 
-      if (response.ok) {
-        setEmailSent(true);
-        
-        // Track email report request
-        trackEvent('email_report_sent', {
-          score: result.total_score,
-          message_type: messageType
-        });
-        
-        setTimeout(() => {
-          setEmailSent(false);
-          setEmail('');
-        }, 3000);
-      } else {
-        setEmailError('Failed to send email. Please try again.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        setEmailError(data.error || 'Signup failed');
+        return;
       }
-    } catch (err) {
-      setEmailError('Failed to send email. Please try again.');
+
+      Cookies.set('auth_token', data.token, { expires: 365 });
+      setAuthToken(data.token);
+      
+      if (data.verified) {
+        await fetchUsageStatus();
+        setShowEmailGate(false);
+        alert('✓ Welcome back. Continue scoring.');
+      } else {
+        setVerificationSent(true);
+        setShowEmailGate(false);
+        setShowVerificationPrompt(true);
+      }
+
+      trackEvent('email_signup_completed', {
+        verified: data.verified
+      });
+
+    } catch (error) {
+      setEmailError('Signup failed. Please try again.');
     }
   };
 
+  const handleResendVerification = async () => {
+    try {
+      await fetch('http://localhost:3001/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: signupEmail })
+      });
+      alert('✓ Verification email sent');
+    } catch (error) {
+      alert('Failed to resend email');
+    }
+  };
+
+  const getTierInfo = (score) => {
+    if (score >= 90) return { label: 'Excellent', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-300', strokeColor: '#10b981' };
+    if (score >= 80) return { label: 'Strong', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-300', strokeColor: '#3b82f6' };
+    if (score >= 70) return { label: 'Good', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-300', strokeColor: '#f59e0b' };
+    if (score >= 60) return { label: 'Needs Work', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-300', strokeColor: '#f97316' };
+    return { label: 'Weak', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-300', strokeColor: '#dc2626' };
+  };
+
+  useEffect(() => {
+    if (result?.total_score) {
+      setDisplayScore(0);
+      let current = 0;
+      const timer = setInterval(() => {
+        current += 2;
+        if (current >= result.total_score) {
+          setDisplayScore(result.total_score);
+          clearInterval(timer);
+        } else {
+          setDisplayScore(current);
+        }
+      }, 20);
+      return () => clearInterval(timer);
+    }
+  }, [result]);
+
   const tier = result ? getTierInfo(result.total_score) : null;
-  const nextTier = result ? getNextTier(result.total_score) : null;
 
   return (
     <div className="min-h-screen bg-stone-50 p-4 sm:p-6">
-      
+      {/* Email Gate Modal */}
+      {showEmailGate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full relative">
+            <button 
+              onClick={() => setShowEmailGate(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                See how you stack up against competitors
+              </h2>
+              <p className="text-slate-600">
+                Get 7 more free scores + benchmarks showing where your messaging ranks in your industry.
+              </p>
+            </div>
+
+            <input
+              type="email"
+              value={signupEmail}
+              onChange={(e) => setSignupEmail(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSignup()}
+              placeholder="your@email.com"
+              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+
+            {emailError && (
+              <p className="text-sm text-red-600 mb-3">{emailError}</p>
+            )}
+
+            <button
+              onClick={handleSignup}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 mb-3 transition"
+            >
+              Show Me How I Compare
+            </button>
+
+            <p className="text-xs text-slate-500 text-center">
+              No credit card required. Unsubscribe anytime.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Email Verification Prompt */}
+      {showVerificationPrompt && !isVerified && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full relative">
+            <button 
+              onClick={() => setShowVerificationPrompt(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-8 h-8 text-amber-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                Check your email
+              </h2>
+              <p className="text-slate-600 mb-4">
+                Verification link sent to <strong>{signupEmail}</strong>
+              </p>
+              <p className="text-sm text-slate-500">
+                Click the link in the email and unlock 7 more free scores, plus your own personalized dashboard.
+              </p>
+            </div>
+
+            <button
+              onClick={handleResendVerification}
+              className="w-full border-2 border-slate-300 text-slate-700 py-3 rounded-lg font-semibold hover:bg-slate-50 transition"
+            >
+              Resend Verification Email
+            </button>
+
+            <p className="text-xs text-slate-500 text-center mt-4">
+              Didn't receive it? Check your spam folder.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Prompt Modal */}
+      {showUpgradePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full relative">
+            <button 
+              onClick={() => setShowUpgradePrompt(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                Momentum looks good on you
+              </h2>
+              <p className="text-slate-600 mb-4">
+                Go Pro for unlimited scoring, rewrites, benchmarks and saved history.
+              </p>
+              
+<div className="space-y-4">
+                {/* Pro Plan - MOST POPULAR - NOW ON TOP */}
+                <div className="border-2 border-purple-500 rounded-lg p-4 bg-purple-50 relative">
+                  <div className="absolute -top-2 left-4 bg-purple-600 text-white text-xs font-bold px-2 py-0.5 rounded">
+                    MOST POPULAR
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900">
+                    $29<span className="text-base font-normal text-slate-600">/month</span>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-700 mb-2">Pro</div>
+                  <ul className="text-xs text-slate-700 space-y-1">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      Unlimited scoring
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      Unlimited messaging rewrites
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      Industry benchmarks
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      Percentile ranking
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      Full history
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Starter Plan - NOW ON BOTTOM */}
+                <div className="border-2 border-slate-200 rounded-lg p-4 bg-white">
+                  <div className="text-2xl font-bold text-slate-900">
+                    $9<span className="text-base font-normal text-slate-600">/month</span>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-700 mb-2">Starter</div>
+                  <ul className="text-xs text-slate-600 space-y-1">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      100 scores a month
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      Messaging rewrites
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      Saved history
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" /> 
+                      Basic benchmarks
+                    </li>
+                  </ul>
+                </div>
+              </div>
+</div>
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch('http://localhost:3001/api/stripe/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${authToken}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  const data = await response.json();
+                  window.location.href = data.url;
+                } catch (error) {
+                  alert('Failed to start checkout. Please try again.');
+                }
+              }}
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-bold hover:from-purple-700 hover:to-blue-700 mb-3 transition"
+            >
+              Go Pro
+            </button>
+
+            <button
+              onClick={() => setShowUpgradePrompt(false)}
+              className="w-full text-slate-600 text-sm hover:text-slate-900"
+            >
+              Try Starter
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-3xl mx-auto">
+
+        {usageStatus?.isPro && (
+          <div className="mb-4 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-full">
+              <Zap className="w-4 h-4 text-purple-600" />
+              <div className="text-sm font-semibold text-purple-900">
+                Pro Member • Unlimited Scoring
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-3">
             <img src="/messagescore-logo.png" alt="MessageScore" className="w-12 h-12 rounded-lg" />
             <h1 className="text-4xl font-bold text-slate-900">MessageScore</h1>
           </div>
           
-          {/* Navigation Links */}
           <div className="flex justify-center gap-6 mb-4">
-            <Link 
-              to="/about" 
-              onClick={() => handleNavClick('about')}
-              className="text-sm font-semibold text-slate-600 hover:text-slate-900"
-            >
+            <Link to="/about" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
               About
             </Link>
-            <Link 
-              to="/how-it-works" 
-              onClick={() => handleNavClick('how-it-works')}
-              className="text-sm font-semibold text-slate-600 hover:text-slate-900"
-            >
+            <Link to="/how-it-works" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
               How It Works
             </Link>
           </div>
 
           <p className="text-slate-700 text-sm font-medium max-w-2xl mx-auto">
-            Stop guessing if your words work. Score and improve them instantly with the first diagnostic tool built for marketing messaging. Clarity, trust and proof are now KPIs. Not opinions.
+            Stop guessing if your words work. Benchmark your messaging, reveal the gaps, and outperform your competitors with the first platform that turns clarity, trust, and proof into measurable results.
           </p>
         </div>
 
@@ -300,8 +603,8 @@ Test your messaging at MessageScore.com`;
             <label className="block text-sm font-semibold text-slate-900 mb-2">Message Type</label>
             <select
               value={messageType}
-              onChange={(e) => handleMessageTypeChange(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-stone-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => setMessageType(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-stone-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             >
               <option value="">Select type...</option>
               {messageTypes.map(type => <option key={type} value={type}>{type}</option>)}
@@ -315,7 +618,7 @@ Test your messaging at MessageScore.com`;
               onChange={(e) => setMessageText(e.target.value)}
               placeholder="Enter your message..."
               rows={4}
-              className="w-full px-4 py-3 border-2 border-stone-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border-2 border-stone-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
             />
           </div>
 
@@ -325,8 +628,8 @@ Test your messaging at MessageScore.com`;
                 <input
                   type="checkbox"
                   checked={hasEquity}
-                  onChange={(e) => handleEquityChange(e.target.checked)}
-                  className="mt-1 w-4 h-4"
+                  onChange={(e) => setHasEquity(e.target.checked)}
+                  className="mt-1 w-4 h-4 accent-blue-600"
                 />
                 <div>
                   <span className="text-sm font-semibold text-slate-900">This is for an established brand with recognition</span>
@@ -348,12 +651,23 @@ Test your messaging at MessageScore.com`;
           <button
             onClick={evaluateMessage}
             disabled={loading}
-            className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 disabled:bg-stone-300 flex items-center justify-center gap-2"
+            className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 disabled:bg-stone-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition"
           >
-            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Scoring...</> : <><TrendingUp className="w-5 h-5" /> Get Your Score</>}
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> 
+                Scoring...
+              </>
+            ) : (
+              <>
+                <TrendingUp className="w-5 h-5" /> 
+                Get Your Score
+              </>
+            )}
           </button>
         </div>
 
+        {/* Results section - keeping your original design */}
         {result && tier && (
           <div className="space-y-4">
             <div className={'border-2 rounded-lg p-8 bg-white ' + tier.border}>
@@ -409,7 +723,20 @@ Test your messaging at MessageScore.com`;
                 </div>
               </div>
 
-              <button onClick={copyScoreToClipboard} className="w-full mt-6 bg-slate-900 text-white py-2 rounded-lg font-semibold hover:bg-slate-800 flex items-center justify-center gap-2">
+              <button 
+                onClick={() => {
+                  const scoreText = `Original Message: "${messageText}"
+
+MessageScore: ${result.total_score}/100 (${tier.label})
+Clarity: ${result.clarity_score}/10 | Verifiability: ${result.verifiability_score}/10 | Trust: ${result.trust_score}/10
+
+Test your messaging at MessageScore.com`;
+                  navigator.clipboard.writeText(scoreText);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }} 
+                className="w-full mt-6 bg-slate-900 text-white py-2 rounded-lg font-semibold hover:bg-slate-800 flex items-center justify-center gap-2 transition"
+              >
                 <Share2 className="w-4 h-4" /> {copied ? 'Copied!' : 'Copy Score to Clipboard'}
               </button>
             </div>
@@ -465,7 +792,7 @@ Test your messaging at MessageScore.com`;
                 </ul>
               </div>
 
-              {result.has_blacklisted_words && result.blacklist_note && (
+              {result.has_overused_cliches && result.cliche_note && (
                 <div className="mt-4 p-3 bg-amber-50 border-2 border-amber-300 rounded-lg">
                   <p className="text-sm text-amber-900 font-medium">{result.blacklist_note}</p>
                 </div>
@@ -485,39 +812,6 @@ Test your messaging at MessageScore.com`;
                 <p className="text-sm text-slate-900">{result.equity_note}</p>
               </div>
             )}
-
-            <div className="bg-slate-50 border-2 border-slate-200 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Want the full analysis?</h3>
-              <p className="text-sm text-slate-600 mb-4">Get your complete MessageScore report emailed to you. Perfect for your swipe file.</p>
-              
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="flex-1 px-4 py-2 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={handleEmailReport}
-                  disabled={!email || emailSent}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-slate-300"
-                >
-                  {emailSent ? '✓ Sent' : 'Send Report'}
-                </button>
-              </div>
-              
-              {emailSent && (
-                <p className="text-sm text-green-700 mt-2">Check your inbox! Report sent to {email}</p>
-              )}
-              
-              {emailError && (
-                <div className="mt-3 p-3 bg-red-50 border-2 border-red-300 rounded-lg flex gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-700 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700 font-medium">{emailError}</p>
-                </div>
-              )}
-            </div>
           </div>
         )}
       </div>
