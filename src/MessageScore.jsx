@@ -217,7 +217,7 @@ JSON response only:
         headers['Authorization'] = `Bearer ${authToken}`;
       }
 
-      const response = await fetch('http://localhost:3001/api/evaluate', {
+      const response = await fetch('/api/evaluate', {
         method: 'POST',
         headers,
         body: JSON.stringify({ prompt, messageType })
